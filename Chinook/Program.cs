@@ -1,6 +1,12 @@
 using Chinook;
 using Chinook.Areas.Identity;
+using Chinook.ExceptionHandler;
+using Chinook.Interfaces.EventTrigger;
+using Chinook.Interfaces.Repository;
+using Chinook.Interfaces.Service;
 using Chinook.Models;
+using Chinook.Repositories;
+using Chinook.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +23,13 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ChinookUser>>();
+builder.Services.AddScoped<IArtistService, ArtistService>();
+builder.Services.AddScoped<IAlbumService, AlbumService>();
+builder.Services.AddScoped<ITrackService, TrackService>();
+
+builder.Services.AddScoped<IArtistRepository, ArtistRepository>();
+builder.Services.AddScoped<IAlbumRepository, AlbumRepository>();
+builder.Services.AddScoped<ITrackRepository, TrackRepository>();
 
 var app = builder.Build();
 
