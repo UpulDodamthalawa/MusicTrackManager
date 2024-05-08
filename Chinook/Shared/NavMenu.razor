@@ -1,4 +1,16 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@attribute [Authorize]
+@implements IDisposable
+
+@using Chinook.ClientModels
+@using System.Security.Claims;
+@using Chinook.Interfaces.EventTrigger
+@using Chinook.Interfaces.Service;
+
+@inject IPlaylistService playlistService;
+@inject NavigationManager NavigationManager
+@inject IEventTriggerService eventTriggerService
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">Chinook</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -7,28 +19,101 @@
     </div>
 </div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+<div class="@NavMenuCssClass" style="overflow-y: auto; max-height: 95vh;" @onclick="ToggleNavMenu">
     <nav class="flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="oi oi-home" aria-hidden="true"></span>Home
             </NavLink>
         </div>
+        @if (myFavoritePlaylist != null)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link cursor-pointer" @onclick="(() => NavigateToPlaylist(myFavoritePlaylist.PlaylistId))" Match="NavLinkMatch.Prefix">
+                    <span class="bi bi-star-fill me-3" style="font-size: 1.25em" aria-hidden="true"></span>@myFavoritePlaylist.Name
+                </NavLink>
+            </div>
+        }
         <div class="nav-item px-3">
-@* 
-            <NavLink class="nav-link" href="playlist/playlistnumber">
-                <i class="bi bi-music-note-list me-3" style="font-size: 1.25em"></i>My favorite tracks
-            </NavLink>
-*@
-</div>
+            @if (playlists != null && playlists.Count() > 0)
+            {
+                @foreach (var playlist in playlists)
+                {
+                    <NavLink class="nav-link cursor-pointer" @onclick="(() => NavigateToPlaylist(playlist.PlaylistId))">
+                        <span class="bi bi-music-note-list me-3" style="font-size: 1.25em" aria-hidden="true"></span>@playlist.Name
+                    </NavLink>
+                }
+            }
+        </div>
 
     </nav>
 </div>
 
 @code {
     private bool collapseNavMenu = true;
+    private List<PlaylistDto>? playlists;
+    private PlaylistDto? myFavoritePlaylist;
+    private string? currentUserId;
 
+    [CascadingParameter] private Task<AuthenticationState> authenticationState { get; set; }
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await InvokeAsync(StateHasChanged);
+        currentUserId = await GetUserId();
+        myFavoritePlaylist = await GetMyFavouritePlaylist();
+        playlists = await GetAll();
+        eventTriggerService.OnMyFavouritePlaylistAdded += HandleMyFavouritePlaylistAddedTriggered;
+        eventTriggerService.OnPlaylistAdded += HandlePlaylistAddedTriggered;
+    }
+
+    private async Task<List<PlaylistDto>> GetAll()
+    {
+        return await playlistService.GetAll(currentUserId);
+    }
+    private async Task<string> GetUserId()
+    {
+        var user = (await authenticationState).User;
+        var userId = user.FindFirst(u => u.Type.Contains(ClaimTypes.NameIdentifier))?.Value;
+        return userId;
+    }
+
+    private async Task<PlaylistDto> GetMyFavouritePlaylist()
+    {
+        return await playlistService.GetMyFavouritePlaylist(currentUserId);
+    }
+
+    private void NavigateToPlaylist(long playlistId)
+    {
+        NavigationManager.NavigateTo($"playlist/{playlistId}",true);
+    }
+
+    private void NavigateToPlaylist1()
+    {
+        if (myFavoritePlaylist != null)
+        {
+            NavigationManager.NavigateTo($"playlist/{myFavoritePlaylist.PlaylistId}");
+        }
+    }
+
+    private async void HandleMyFavouritePlaylistAddedTriggered(object sender, EventArgs e)
+    {
+        myFavoritePlaylist = await GetMyFavouritePlaylist();
+        StateHasChanged();
+    }
+
+    private async void HandlePlaylistAddedTriggered(object sender, EventArgs e)
+    {
+        playlists = await GetAll();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        eventTriggerService.OnMyFavouritePlaylistAdded -= HandleMyFavouritePlaylistAddedTriggered;
+        eventTriggerService.OnPlaylistAdded -= HandlePlaylistAddedTriggered;
+    }
 
     private void ToggleNavMenu()
     {

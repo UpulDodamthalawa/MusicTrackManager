@@ -26,14 +26,15 @@ builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuth
 builder.Services.AddScoped<IArtistService, ArtistService>();
 builder.Services.AddScoped<IAlbumService, AlbumService>();
 builder.Services.AddScoped<ITrackService, TrackService>();
+builder.Services.AddScoped<IPlaylistService, PlaylistService>();
 
 builder.Services.AddScoped<IArtistRepository, ArtistRepository>();
 builder.Services.AddScoped<IAlbumRepository, AlbumRepository>();
 builder.Services.AddScoped<ITrackRepository, TrackRepository>();
+builder.Services.AddScoped<IPlaylistRepository, PlaylistRepository>();
 
 builder.Services.AddExceptionHandler<ChinookExcepionHandler>();
 builder.Services.AddSingleton<IEventTriggerService, EventTriggerService>();
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

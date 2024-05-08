@@ -3,6 +3,7 @@
 
 @using Chinook.ClientModels
 @using System.Security.Claims;
+@using Chinook.Constants
 @using Chinook.Interfaces.EventTrigger
 @using Chinook.Interfaces.Service;
 
@@ -195,7 +196,7 @@ else
         await trackService.AddTrackToMyFavourite(track, currentUserId);
         eventTriggerService.TriggerMyFavouritePlaylistAdded();
 
-        informationMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} added to playlist - My favorite traks.";
+        informationMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} added to playlist - {Constant.MyFavouritePlaylist}.";
     }
 
     private async void UnfavoriteTrack(long trackId)
@@ -205,7 +206,7 @@ else
 
         await trackService.RemoveTrackFromMyFavourite(track, currentUserId);
 
-        informationMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} removed from playlist - My favorite traks.";
+        informationMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} removed from playlist - {Constant.MyFavouritePlaylist}.";
     }
 
     private void OpenPlaylistDialog(long trackId)
