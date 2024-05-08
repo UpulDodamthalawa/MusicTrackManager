@@ -32,6 +32,7 @@ builder.Services.AddScoped<IAlbumRepository, AlbumRepository>();
 builder.Services.AddScoped<ITrackRepository, TrackRepository>();
 
 builder.Services.AddExceptionHandler<ChinookExcepionHandler>();
+builder.Services.AddSingleton<IEventTriggerService, EventTriggerService>();
 
 var app = builder.Build();
 
