@@ -1,13 +1,19 @@
 ﻿@page "/"
 @attribute [Authorize]
 
-@using Chinook.Models
-@using Microsoft.EntityFrameworkCore
+@using Chinook.ClientModels
+@using Chinook.Interfaces.Service
+
+@inject IArtistService artistService;
+@inject IAlbumService albumService;
 
 <PageTitle>Index</PageTitle>
 
 <h1>Artists</h1>
-
+<div class="d-flex">
+    <input type="text" class="form-control" style="width:30%; margin-right:5px;" @bind="searchTerm" placeholder="Search by artist name" />
+    <button class="btn btn-success" @onclick="Search">Search</button>
+</div>
 @if (Artists == null)
 {
     <Loading />
@@ -34,25 +40,35 @@ else
 }
 
 @code {
-    private List<Artist> Artists;
-    [Inject] IDbContextFactory<ChinookContext> DbFactory { get; set; }
+    private List<ArtistDto> Artists;
+    private List<ArtistDto> OriginalArtists;
+    private string searchTerm;
 
     protected override async Task OnInitializedAsync() {
         await InvokeAsync(StateHasChanged);
         Artists = await GetArtists();
+        OriginalArtists = Artists;
     }
 
-    public async Task<List<Artist>> GetArtists()
-    {   
-        var dbContext = await DbFactory.CreateDbContextAsync();
-        var users = dbContext.Users.Include(a => a.UserPlaylists).ToList();
-        
-        return dbContext.Artists.ToList();
-    }
-
-    public async Task<List<Album>> GetAlbumsForArtist(int artistId)
+    public async Task<List<ArtistDto>> GetArtists()
     {
-        var dbContext = await DbFactory.CreateDbContextAsync();
-        return dbContext.Albums.Where(a => a.ArtistId == artistId).ToList();
+        return await artistService.GetAll();
+    }
+
+    public async Task<List<AlbumDto>> GetAlbumsForArtist(int artistId)
+    {
+        return await albumService.GetAlbumsByArtist(artistId);
+    }
+
+    private void Search()
+    {
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            Artists = OriginalArtists.Where(t => t.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        else
+        {
+            Artists = OriginalArtists;
+        }
     }
 }

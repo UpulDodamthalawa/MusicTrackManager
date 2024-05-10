@@ -1,25 +1,30 @@
 ﻿@page "/playlist/{PlaylistId:long}"
 @attribute [Authorize]
 
-@using Chinook.Models
-@using Microsoft.EntityFrameworkCore
 @using System.Security.Claims;
+@using Chinook.ClientModels;
+@using Chinook.Constants
+@using Chinook.Interfaces.EventTrigger
+@using Chinook.Interfaces.Service;
 
-<h1>Playlist <strong>@Playlist.Name</strong></h1>
+@inject IPlaylistService playlistService;
+@inject IEventTriggerService eventTriggerService
 
-@if (!string.IsNullOrWhiteSpace(InfoMessage))
+<h1>Playlist <strong>@playlist.Name</strong></h1>
+
+@if (!string.IsNullOrWhiteSpace(infomationMessage))
 {
     <div class="alert alert-info fade show">
         <div class="d-flex align-items-start">
             <div class="flex-grow-1">
-                @InfoMessage
+                @infomationMessage
             </div>
             <button type="button" class="btn-close" aria-label="Close" @onclick="CloseInfoMessage"></button>
         </div>
     </div>
 }
 
-@if (Playlist == null)
+@if (playlist == null)
 {
      <Loading />
 }
@@ -33,25 +38,24 @@ else
         </tr>
         </thead>
         <tbody>
-            @foreach (var track in Playlist.Tracks)
+            @foreach (var track in playlist.Tracks)
             {
                 <tr>
                     <td>@track.ArtistName - @track.AlbumTitle - @track.TrackName</td>
                     <td>
                         <div class="d-flex">
-                            @if (Playlist.Name != "Favorite")
+                            @if (track.IsFavorite)
                             {
-                                @if (track.IsFavorite)
-                                {
-                                    <a href="#" class="m-1" title="Unark as favorite" @onclick="@(() => UnfavoriteTrack(track.TrackId))" @onclick:preventDefault><i class="bi bi-star-fill"></i></a>
-                                }
-                                else
-                                {
-                                    <a href="#" class="m-1" title="Mark as favorite" @onclick="@(() => FavoriteTrack(track.TrackId))" @onclick:preventDefault><i class="bi bi-star"></i></a>
-                                }
-
+                                <a href="#" class="m-1" title="Unark as favorite" @onclick="@(() => UnfavoriteTrack(track.TrackId))" @onclick:preventDefault><i class="bi bi-star-fill"></i></a>
                             }
-                            <a href="#" class="m-1" title="Remove from this playlist" @onclick="@(() => RemoveTrack(track.TrackId))" @onclick:preventDefault><i class="bi bi-trash"></i></a>
+                            else
+                            {
+                                <a href="#" class="m-1" title="Mark as favorite" @onclick="@(() => FavoriteTrack(track.TrackId))" @onclick:preventDefault><i class="bi bi-star"></i></a>
+                            }
+                            @if (!playlist.Name.Equals("My favorite tracks"))
+                            {
+                                <a href="#" class="m-1" title="Remove from this playlist" @onclick="@(() => RemoveTrack(track.TrackId))" @onclick:preventDefault><i class="bi bi-trash"></i></a>
+                            }
                         </div>
                     </td>
                 </tr>
@@ -61,74 +65,59 @@ else
 }
 
 @code {
-    [Parameter] public long PlaylistId { get; set; }
-    [Inject] IDbContextFactory<ChinookContext> DbFactory { get; set; }
+    [Parameter] public long playlistId { get; set; }
     [CascadingParameter] private Task<AuthenticationState> authenticationState { get; set; }
 
-    private Chinook.ClientModels.Playlist Playlist;
-    private string CurrentUserId;
-    private string InfoMessage;
+    private PlaylistDto playlist;
+    private string? currentUserId;
+    private string? infomationMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        CurrentUserId = await GetUserId();
-
+        currentUserId = await GetUserId();
         await InvokeAsync(StateHasChanged);
-        var DbContext = await DbFactory.CreateDbContextAsync();
 
-        Playlist = DbContext.Playlists
-            .Include(a => a.Tracks).ThenInclude(a => a.Album).ThenInclude(a => a.Artist)
-            .Where(p => p.PlaylistId == PlaylistId)
-            .Select(p => new ClientModels.Playlist()
-                {
-                    Name = p.Name,
-                    Tracks = p.Tracks.Select(t => new ClientModels.PlaylistTrack()
-                    {
-                        AlbumTitle = t.Album.Title,
-                        ArtistName = t.Album.Artist.Name,
-                        TrackId = t.TrackId,
-                        TrackName = t.Name,
-                        IsFavorite = t.Playlists.Where(p => p.UserPlaylists.Any(up => up.UserId == CurrentUserId && up.Playlist.Name == "Favorites")).Any()
-                    }).ToList()
-                })
-            .FirstOrDefault();
+        playlist = await playlistService.GetPlaylistByPlaylistAndUserId(playlistId, currentUserId);
     }
 
     private async Task<string> GetUserId()
     {
         var user = (await authenticationState).User;
         var userId = user.FindFirst(u => u.Type.Contains(ClaimTypes.NameIdentifier))?.Value;
-        return userId;
+        return userId != null ? userId : string.Empty;
     }
 
-    private void FavoriteTrack(long trackId)
+    private async void FavoriteTrack(long trackId)
     {
-        var track = Playlist.Tracks.FirstOrDefault(t => t.TrackId == trackId);
+        var track = playlist.Tracks.FirstOrDefault(t => t.TrackId == trackId);
+        track.IsFavorite = true;
 
-        // TODO: add track to Favorites playlist
+        await playlistService.AddTrackToMyFavorite(track, currentUserId);
+        eventTriggerService.TriggerMyFavouritePlaylistAdded();
 
-        InfoMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} added to playlist Favorites.";
+        infomationMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} added to playlist - {Constant.MyFavouritePlaylist}.";
     }
 
-    private void UnfavoriteTrack(long trackId)
+    private async void UnfavoriteTrack(long trackId)
     {
-        var track = Playlist.Tracks.FirstOrDefault(t => t.TrackId == trackId);
+        var track = playlist.Tracks.FirstOrDefault(t => t.TrackId == trackId);
+        track.IsFavorite = false;
+        await playlistService.RemoveTrackFromMyFavorite(track, currentUserId);
+        playlist = await playlistService.GetPlaylistByPlaylistAndUserId(playlistId, currentUserId);
 
-        // TODO: remove track from Favorites playlist
-
-        InfoMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} removed from playlist Favorites.";
+        infomationMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} removed from playlist - {Constant.MyFavouritePlaylist}.";
     }
 
-    private void RemoveTrack(long trackId)
+    private async void RemoveTrack(long trackId)
     {
-        // TODO
-        s
-        CloseInfoMessage();
+        await playlistService.RemoveTrackFromPlaylist(playlist.PlaylistId, trackId);
+        playlist = await playlistService.GetPlaylistByPlaylistAndUserId(playlistId, currentUserId);
+
+        infomationMessage = $"Track removed from playlist - {playlist.Name}.";
     }
 
     private void CloseInfoMessage()
     {
-        InfoMessage = "";
+        infomationMessage = "";
     }
-
 }

@@ -29,6 +29,7 @@ public partial class ChinookContext : IdentityDbContext<ChinookUser>
     public virtual DbSet<Playlist> Playlists { get; set; } = null!;
     public virtual DbSet<Track> Tracks { get; set; } = null!;
     public virtual DbSet<UserPlaylist> UserPlaylists { get; set; } = null!;
+    public virtual DbSet<PlaylistTrack> PlaylistTrack { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -282,6 +283,21 @@ public partial class ChinookContext : IdentityDbContext<ChinookUser>
 
             entity.HasOne(up => up.Playlist)
                 .WithMany(u => u.UserPlaylists)
+                .HasForeignKey(up => up.PlaylistId);
+        });
+
+        modelBuilder.Entity<PlaylistTrack>(entity =>
+        {
+            entity.ToTable("PlaylistTracks");
+            entity.HasKey(bc => new { bc.TrackId, bc.PlaylistId });
+            entity.Property(e => e.IsFavorite).HasColumnType("BIT");
+
+            entity.HasOne(up => up.Track)
+                .WithMany(u => u.PlaylistTracks)
+                .HasForeignKey(up => up.TrackId);
+
+            entity.HasOne(up => up.Playlist)
+                .WithMany(u => u.PlaylistTracks)
                 .HasForeignKey(up => up.PlaylistId);
         });
 

@@ -1,6 +1,12 @@
 using Chinook;
 using Chinook.Areas.Identity;
+using Chinook.ExceptionHandler;
+using Chinook.Interfaces.EventTrigger;
+using Chinook.Interfaces.Repository;
+using Chinook.Interfaces.Service;
 using Chinook.Models;
+using Chinook.Repositories;
+using Chinook.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +23,18 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ChinookUser>>();
+builder.Services.AddScoped<IArtistService, ArtistService>();
+builder.Services.AddScoped<IAlbumService, AlbumService>();
+builder.Services.AddScoped<ITrackService, TrackService>();
+builder.Services.AddScoped<IPlaylistService, PlaylistService>();
 
+builder.Services.AddScoped<IArtistRepository, ArtistRepository>();
+builder.Services.AddScoped<IAlbumRepository, AlbumRepository>();
+builder.Services.AddScoped<ITrackRepository, TrackRepository>();
+builder.Services.AddScoped<IPlaylistRepository, PlaylistRepository>();
+
+builder.Services.AddExceptionHandler<ChinookExcepionHandler>();
+builder.Services.AddSingleton<IEventTriggerService, EventTriggerService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -31,7 +48,7 @@ else
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-
+app.UseExceptionHandler(opt => { });
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
